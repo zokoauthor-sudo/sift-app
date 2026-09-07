@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sift</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI that shows you what it's actually sure of.">
+<meta name="theme-color" content="#0B1220">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sift">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,340..900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #E3E8EF; --paper-raised: #F5F8FA; --ink: #172341; --ink-dim: #4E5A73;
+    --line: #C4CCDA; --lamp: #2F5A9C; --lamp-ink: #1E3F6E; --lamp-contrast: #F2F6FB;
+    --clear: #1F6E52; --clear-bg: #DCE9E1; --warm: #9C621A; --warm-bg: #EEDEC2;
+    --fog: #573A66; --fog-bg: #E4D9EA;
+    --shadow: 0 1px 2px rgba(10,18,32,0.08), 0 8px 24px rgba(10,18,32,0.07);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0B1220; --paper-raised:#121A2C; --ink:#DCE3EE; --ink-dim:#8792A8; --line:#202B42;
+      --lamp:#6FA0E0; --lamp-ink:#9CC0EE; --lamp-contrast:#0A1220;
+      --clear:#4FA980; --clear-bg:#142720; --warm:#D7A24E; --warm-bg:#2A2013;
+      --fog:#A587C0; --fog-bg:#201A2C;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 14px 34px rgba(0,0,0,0.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0B1220; --paper-raised:#121A2C; --ink:#DCE3EE; --ink-dim:#8792A8; --line:#202B42;
+    --lamp:#6FA0E0; --lamp-ink:#9CC0EE; --lamp-contrast:#0A1220;
+    --clear:#4FA980; --clear-bg:#142720; --warm:#D7A24E; --warm-bg:#2A2013;
+    --fog:#A587C0; --fog-bg:#201A2C;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 14px 34px rgba(0,0,0,0.45);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--paper); color:var(--ink); font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; line-height:1.5;}
+  @media (prefers-reduced-motion: reduce){*{animation-duration:.001ms !important; transition-duration:.001ms !important;}}
+  .wrap{max-width:760px; margin:0 auto; padding:56px 24px 96px;}
+  .brand{display:flex; align-items:center; gap:10px; margin-bottom:56px;}
+  .brand-mark{width:22px;height:22px;flex:none;}
+  .brand-mark svg{width:100%;height:100%;display:block;}
+  .brand-name{font-family:"Fraunces", Georgia, serif; font-weight:600; font-size:1.05rem;}
+  .brand-tag{font-size:.72rem; color:var(--ink-dim); letter-spacing:.06em; text-transform:uppercase; margin-left:auto; font-family:"IBM Plex Mono", monospace;}
+  h1{font-family:"Fraunces", Georgia, serif; font-weight:500; font-size:clamp(2rem,4.5vw,2.7rem); line-height:1.1; letter-spacing:-.01em; margin:0 0 16px; text-wrap:balance;}
+  h1 em{font-style:italic; font-weight:340; color:var(--lamp-ink);}
+  .lede{font-size:1.02rem; color:var(--ink-dim); max-width:56ch; margin:0 0 32px;}
+
+  form{display:flex; gap:10px; margin-bottom:32px;}
+  input[type=text]{
+    flex:1; font-family:inherit; font-size:1rem; padding:13px 16px; border-radius:10px;
+    border:1px solid var(--line); background:var(--paper-raised); color:var(--ink);
+  }
+  input[type=text]:focus-visible{outline:2px solid var(--lamp); outline-offset:1px;}
+  button.ask{
+    font-family:inherit; font-size:.95rem; font-weight:500; padding:0 22px; border-radius:10px;
+    border:1px solid var(--lamp); background:var(--lamp); color:var(--lamp-contrast); cursor:pointer;
+  }
+  button.ask:disabled{opacity:.55; cursor:default;}
+
+  .legend{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:36px;}
+  .chip{display:flex; align-items:center; gap:7px; padding:7px 12px 7px 10px; border-radius:100px; border:1px solid var(--line); font-size:.78rem; color:var(--ink-dim); background:var(--paper-raised);}
+  .chip b{color:var(--ink); font-weight:600;}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .dot.clear{background:var(--clear);} .dot.warm{background:var(--warm);} .dot.fog{background:var(--fog);}
+
+  .console{border:1px solid var(--line); border-radius:16px; background:var(--paper-raised); box-shadow:var(--shadow); overflow:hidden; display:none;}
+  .console.show{display:block;}
+  .prompt-row{padding:20px 24px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:baseline;}
+  .prompt-you{font-family:"IBM Plex Mono", monospace; font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-dim); flex:none; padding-top:3px;}
+  .prompt-text{font-size:1rem; font-weight:500;}
+  .answer{padding:24px; font-size:1.02rem; min-height:60px;}
+  .answer-body{display:flex; flex-wrap:wrap; gap:.3em 0;}
+  .seg{cursor:pointer; border-bottom:2px solid transparent; padding-bottom:1px; transition:background .15s ease;}
+  .seg.clear{border-color:var(--clear);} .seg.warm{border-color:var(--warm);} .seg.fog{border-color:var(--fog); opacity:.88;}
+  .seg:hover{background:var(--line);}
+  .seg.open.clear{background:var(--clear-bg);} .seg.open.warm{background:var(--warm-bg);} .seg.open.fog{background:var(--fog-bg);}
+  .note{max-height:0; overflow:hidden; transition:max-height .25s ease, margin .25s ease, opacity .2s ease; opacity:0; width:100%;}
+  .note.show{max-height:200px; opacity:1; margin:10px 0 4px;}
+  .note-inner{font-size:.86rem; line-height:1.5; padding:12px 14px; border-radius:10px; display:flex; gap:10px;}
+  .note-inner.clear{background:var(--clear-bg);} .note-inner.warm{background:var(--warm-bg);} .note-inner.fog{background:var(--fog-bg);}
+  .note-tag{font-family:"IBM Plex Mono", monospace; font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; flex:none; padding-top:2px; opacity:.75;}
+  .followups{padding:20px 24px 24px; border-top:1px solid var(--line); display:none;}
+  .followups.show{display:block;}
+  .followups-label{font-family:"IBM Plex Mono", monospace; font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-dim); margin-bottom:11px;}
+  .followup-list{display:flex; flex-direction:column; gap:8px;}
+  .followup-btn{display:flex; align-items:center; gap:10px; width:100%; text-align:left; font-family:inherit; font-size:.88rem; color:var(--ink); background:var(--paper-raised); border:1px solid var(--line); padding:11px 14px; border-radius:10px; cursor:pointer; transition:border-color .15s ease, background .15s ease;}
+  .followup-btn:hover{border-color:var(--fog); background:var(--fog-bg);}
+  .followup-btn:focus-visible{outline:2px solid var(--lamp); outline-offset:2px;}
+  .followup-btn .arrow{color:var(--fog); flex:none; font-family:"IBM Plex Mono", monospace;}
+
+  .ledger{padding:18px 24px 22px; border-top:1px solid var(--line); background:var(--paper);}
+  .ledger-label{font-family:"IBM Plex Mono", monospace; font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-dim); margin-bottom:9px; display:flex; justify-content:space-between; font-variant-numeric:tabular-nums;}
+  .bar{height:8px; border-radius:100px; overflow:hidden; display:flex; background:var(--line);}
+  .bar span{height:100%;}
+  .bar .b-clear{background:var(--clear);} .bar .b-warm{background:var(--warm);} .bar .b-fog{background:var(--fog);}
+
+  .status{font-size:.9rem; color:var(--ink-dim); padding:24px; display:none;}
+  .status.show{display:block;}
+  .error{color:#B3432E;}
+
+  footer{margin-top:56px; padding-top:24px; border-top:1px solid var(--line); font-size:.84rem; color:var(--ink-dim); max-width:56ch;}
+
+  .nav{display:flex; gap:4px; margin-bottom:40px; border-bottom:1px solid var(--line);}
+  .nav button{
+    font-family:inherit; font-size:.88rem; font-weight:500; color:var(--ink-dim);
+    background:none; border:none; border-bottom:2px solid transparent;
+    padding:0 4px 12px; margin-right:22px; cursor:pointer;
+  }
+  .nav button.active{color:var(--ink); border-color:var(--lamp);}
+  .nav button:focus-visible{outline:2px solid var(--lamp); outline-offset:2px;}
+
+  .view{display:none;}
+  .view.show{display:block;}
+
+  .tier-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:40px;}
+  .tier-card{border:1px solid var(--line); border-radius:14px; background:var(--paper-raised); padding:18px;}
+  .tier-head{display:flex; align-items:center; gap:8px; margin-bottom:12px;}
+  .tier-head .dot{width:9px;height:9px;border-radius:50%;}
+  .tier-name{font-weight:600; font-size:.92rem;}
+  .tier-pct{font-family:"Fraunces", Georgia, serif; font-size:2.1rem; font-weight:500; line-height:1; margin-bottom:6px;}
+  .tier-pct.empty{color:var(--ink-dim); font-size:1.3rem; font-family:inherit; font-weight:400;}
+  .tier-sub{font-size:.78rem; color:var(--ink-dim);}
+  .tier-bar{height:6px; border-radius:100px; background:var(--line); overflow:hidden; margin-top:12px;}
+  .tier-bar span{display:block; height:100%;}
+
+  .pending-section h2{font-family:"Fraunces", Georgia, serif; font-weight:500; font-size:1.3rem; margin:0 0 6px;}
+  .pending-sub{font-size:.88rem; color:var(--ink-dim); margin:0 0 20px; max-width:56ch;}
+  .pending-list{display:flex; flex-direction:column; gap:10px;}
+  .pending-item{border:1px solid var(--line); border-radius:12px; background:var(--paper-raised); padding:16px 18px;}
+  .pending-q{font-size:.72rem; color:var(--ink-dim); margin-bottom:6px; font-family:"IBM Plex Mono", monospace; text-transform:uppercase; letter-spacing:.05em;}
+  .pending-text{font-size:.95rem; margin-bottom:12px; line-height:1.5;}
+  .pending-actions{display:flex; gap:8px; align-items:center;}
+  .verdict-btn{
+    font-family:inherit; font-size:.82rem; font-weight:500; padding:8px 14px; border-radius:8px;
+    border:1px solid var(--line); background:var(--paper); color:var(--ink); cursor:pointer;
+  }
+  .verdict-btn.up:hover{border-color:var(--clear); background:var(--clear-bg);}
+  .verdict-btn.down:hover{border-color:var(--warm); background:var(--warm-bg);}
+  .verdict-btn:focus-visible{outline:2px solid var(--lamp); outline-offset:2px;}
+  .pending-empty{font-size:.9rem; color:var(--ink-dim); padding:24px; text-align:center; border:1px dashed var(--line); border-radius:12px;}
+  .rated-flash{font-size:.82rem; color:var(--clear); font-style:italic;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <span class="brand-mark"><svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="9.5" stroke="var(--lamp)" stroke-width="1.4"/><circle cx="11" cy="11" r="4.6" fill="var(--lamp)"/></svg></span>
+    <span class="brand-name">Sift</span>
+    <span class="brand-tag">Live</span>
+  </div>
+
+  <div class="nav">
+    <button type="button" class="active" id="navAsk">Ask</button>
+    <button type="button" id="navTrack">Track record</button>
+  </div>
+
+  <div class="view show" id="viewAsk">
+    <h1>An AI that shows you <em>what it's actually sure of.</em></h1>
+    <p class="lede">Ask anything. The answer comes back graded claim by claim — click any underlined phrase to see why it's marked that way.</p>
+
+    <form id="askForm">
+      <input type="text" id="question" placeholder="Ask something…" autocomplete="off" />
+      <button class="ask" type="submit" id="askBtn">Ask</button>
+    </form>
+
+    <div class="legend">
+      <span class="chip"><span class="dot clear"></span>Solid ground — <b>well-established</b></span>
+      <span class="chip"><span class="dot warm"></span>Reasonable — <b>worth a second look</b></span>
+      <span class="chip"><span class="dot fog"></span>Genuinely unsure — <b>verify yourself</b></span>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="console" id="console">
+      <div class="prompt-row"><span class="prompt-you">You asked</span><span class="prompt-text" id="promptText"></span></div>
+      <div class="answer"><div class="answer-body" id="answerBody"></div></div>
+      <div class="ledger">
+        <div class="ledger-label"><span>This answer's confidence mix</span><span id="ledgerPct"></span></div>
+        <div class="bar"><span class="b-clear" id="bClear"></span><span class="b-warm" id="bWarm"></span><span class="b-fog" id="bFog"></span></div>
+      </div>
+      <div class="followups" id="followups">
+        <div class="followups-label">Sharper questions, built from what it's unsure of</div>
+        <div class="followup-list" id="followupList"></div>
+      </div>
+    </div>
+
+    <footer>Sift asks the model to grade its own certainty on every claim before you see it, instead of one uniformly confident paragraph.</footer>
+  </div>
+
+  <div class="view" id="viewTrack">
+    <h1>Does <em>"clear"</em> actually mean reliable?</h1>
+    <p class="lede">Every claim Sift has ever made, graded, is sitting here waiting to be checked against reality. This is what makes "confident" mean something instead of just sounding good.</p>
+
+    <div class="tier-grid" id="tierGrid"></div>
+
+    <div class="pending-section">
+      <h2>Help calibrate</h2>
+      <p class="pending-sub">Did these actually hold up? Rating them is what turns the numbers above from empty to real.</p>
+      <div class="pending-list" id="pendingList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const form = document.getElementById('askForm');
+const input = document.getElementById('question');
+const askBtn = document.getElementById('askBtn');
+const statusEl = document.getElementById('status');
+const consoleEl = document.getElementById('console');
+const promptText = document.getElementById('promptText');
+const answerBody = document.getElementById('answerBody');
+const bClear = document.getElementById('bClear');
+const bWarm = document.getElementById('bWarm');
+const bFog = document.getElementById('bFog');
+const ledgerPct = document.getElementById('ledgerPct');
+const followupsEl = document.getElementById('followups');
+const followupList = document.getElementById('followupList');
+
+const navAsk = document.getElementById('navAsk');
+const navTrack = document.getElementById('navTrack');
+const viewAsk = document.getElementById('viewAsk');
+const viewTrack = document.getElementById('viewTrack');
+const tierGrid = document.getElementById('tierGrid');
+const pendingList = document.getElementById('pendingList');
+
+const TIER_META = {
+  clear: { label: 'Solid ground', hint: 'marked "clear"' },
+  warm:  { label: 'Reasonable',   hint: 'marked "warm"' },
+  fog:   { label: 'Genuinely unsure', hint: 'marked "fog"' }
+};
+
+navAsk.addEventListener('click', () => switchView('ask'));
+navTrack.addEventListener('click', () => switchView('track'));
+
+function switchView(which){
+  const toTrack = which === 'track';
+  navAsk.classList.toggle('active', !toTrack);
+  navTrack.classList.toggle('active', toTrack);
+  viewAsk.classList.toggle('show', !toTrack);
+  viewTrack.classList.toggle('show', toTrack);
+  if(toTrack) loadTrackRecord();
+}
+
+async function loadTrackRecord(){
+  tierGrid.innerHTML = '<div class="pending-empty">Loading…</div>';
+  pendingList.innerHTML = '';
+  try {
+    const res = await fetch('/api/track-record');
+    const data = await res.json();
+    renderTiers(data.tiers);
+    renderPending(data.pending || []);
+  } catch (err) {
+    tierGrid.innerHTML = `<div class="pending-empty">Couldn't load track record: ${err.message}</div>`;
+  }
+}
+
+function renderTiers(tiers){
+  tierGrid.innerHTML = '';
+  ['clear', 'warm', 'fog'].forEach(tier => {
+    const t = tiers[tier] || { total: 0, rated: 0, held_up: 0, pct_held_up: null };
+    const meta = TIER_META[tier];
+
+    const card = document.createElement('div');
+    card.className = 'tier-card';
+
+    const head = document.createElement('div');
+    head.className = 'tier-head';
+    head.innerHTML = `<span class="dot ${tier}"></span><span class="tier-name">${meta.label}</span>`;
+
+    const pct = document.createElement('div');
+    if(t.rated > 0){
+      pct.className = 'tier-pct';
+      pct.textContent = t.pct_held_up + '%';
+    } else {
+      pct.className = 'tier-pct empty';
+      pct.textContent = 'Not enough data yet';
+    }
+
+    const sub = document.createElement('div');
+    sub.className = 'tier-sub';
+    sub.textContent = t.rated > 0
+      ? `held up, across ${t.rated} rated claim${t.rated === 1 ? '' : 's'} (${t.total} total ${meta.hint})`
+      : `${t.total} claim${t.total === 1 ? '' : 's'} ${meta.hint} — none rated yet`;
+
+    const bar = document.createElement('div');
+    bar.className = 'tier-bar';
+    if(t.rated > 0){
+      const fill = document.createElement('span');
+      fill.style.width = t.pct_held_up + '%';
+      fill.style.background = `var(--${tier})`;
+      bar.appendChild(fill);
+    }
+
+    card.appendChild(head);
+    card.appendChild(pct);
+    card.appendChild(sub);
+    card.appendChild(bar);
+    tierGrid.appendChild(card);
+  });
+}
+
+function renderPending(items){
+  pendingList.innerHTML = '';
+  if(!items.length){
+    pendingList.innerHTML = '<div class="pending-empty">Nothing waiting on you right now — ask Sift something, then come back later to say whether it held up.</div>';
+    return;
+  }
+  items.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'pending-item';
+
+    const q = document.createElement('div');
+    q.className = 'pending-q';
+    q.textContent = `${TIER_META[item.confidence]?.label || item.confidence} · from: "${item.question}"`;
+
+    const text = document.createElement('div');
+    text.className = 'pending-text';
+    text.textContent = item.text;
+
+    const actions = document.createElement('div');
+    actions.className = 'pending-actions';
+
+    const up = document.createElement('button');
+    up.type = 'button';
+    up.className = 'verdict-btn up';
+    up.textContent = '👍 Held up';
+
+    const down = document.createElement('button');
+    down.type = 'button';
+    down.className = 'verdict-btn down';
+    down.textContent = '👎 Turned out wrong';
+
+    async function submitVerdict(verdict, label){
+      up.disabled = true; down.disabled = true;
+      try {
+        await fetch('/api/verdict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ segment_id: item.segment_id, verdict })
+        });
+        actions.innerHTML = `<span class="rated-flash">Thanks — marked "${label}".</span>`;
+        renderTiers((await (await fetch('/api/track-record')).json()).tiers);
+      } catch (err) {
+        up.disabled = false; down.disabled = false;
+        actions.insertAdjacentHTML('beforeend', `<span class="rated-flash" style="color:var(--warm)">Couldn't save that — try again.</span>`);
+      }
+    }
+    up.addEventListener('click', () => submitVerdict('held_up', 'held up'));
+    down.addEventListener('click', () => submitVerdict('wrong', 'turned out wrong'));
+
+    actions.appendChild(up);
+    actions.appendChild(down);
+
+    row.appendChild(q);
+    row.appendChild(text);
+    row.appendChild(actions);
+    pendingList.appendChild(row);
+  });
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const question = input.value.trim();
+  if (!question) return;
+  await askQuestion(question);
+});
+
+async function askQuestion(question){
+  askBtn.disabled = true;
+  consoleEl.classList.remove('show');
+  statusEl.classList.add('show');
+  statusEl.classList.remove('error');
+  statusEl.innerHTML = '';
+  statusEl.textContent = 'Thinking, and grading itself as it goes…';
+
+  try {
+    const res = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+
+    statusEl.classList.remove('show');
+    render(data.question, data.segments, data.follow_ups || []);
+  } catch (err) {
+    statusEl.classList.add('error');
+    statusEl.textContent = 'Error: ' + err.message + '  ';
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.textContent = 'Try again';
+    retry.style.cssText = 'font-family:inherit; font-size:.85rem; font-weight:500; padding:6px 12px; border-radius:8px; border:1px solid var(--line); background:var(--paper-raised); color:var(--ink); cursor:pointer;';
+    retry.addEventListener('click', () => askQuestion(question));
+    statusEl.appendChild(retry);
+  } finally {
+    askBtn.disabled = false;
+  }
+}
+
+function render(question, segments, followUps){
+  promptText.textContent = question;
+  answerBody.innerHTML = '';
+  const counts = { clear: 0, warm: 0, fog: 0 };
+
+  segments.forEach(seg => {
+    const c = ['clear','warm','fog'].includes(seg.confidence) ? seg.confidence : 'warm';
+    counts[c]++;
+
+    const span = document.createElement('span');
+    span.className = 'seg ' + c;
+    span.textContent = seg.text;
+    span.tabIndex = 0;
+    span.setAttribute('role', 'button');
+    span.setAttribute('aria-expanded', 'false');
+
+    const noteWrap = document.createElement('div');
+    noteWrap.className = 'note';
+    const label = c === 'clear' ? 'Solid ground' : c === 'warm' ? 'Reasonable, worth checking' : 'Genuinely unsure';
+    const noteInner = document.createElement('div');
+    noteInner.className = 'note-inner ' + c;
+    const tag = document.createElement('span');
+    tag.className = 'note-tag';
+    tag.textContent = label;
+    const body = document.createElement('span');
+    body.textContent = seg.note || '';
+    noteInner.appendChild(tag);
+    noteInner.appendChild(body);
+    noteWrap.appendChild(noteInner);
+
+    function toggle(){
+      const open = span.classList.toggle('open');
+      noteWrap.classList.toggle('show', open);
+      span.setAttribute('aria-expanded', String(open));
+    }
+    span.addEventListener('click', toggle);
+    span.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } });
+
+    answerBody.appendChild(span);
+    answerBody.appendChild(noteWrap);
+  });
+
+  const total = counts.clear + counts.warm + counts.fog || 1;
+  bClear.style.width = (counts.clear/total*100) + '%';
+  bWarm.style.width = (counts.warm/total*100) + '%';
+  bFog.style.width = (counts.fog/total*100) + '%';
+  ledgerPct.textContent = `${counts.clear} solid · ${counts.warm} check · ${counts.fog} unsure`;
+
+  followupList.innerHTML = '';
+  if(followUps && followUps.length){
+    followUps.forEach(q => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'followup-btn';
+      btn.innerHTML = `<span class="arrow">→</span><span></span>`;
+      btn.querySelector('span:last-child').textContent = q;
+      btn.addEventListener('click', () => {
+        input.value = q;
+        form.requestSubmit();
+      });
+      followupList.appendChild(btn);
+    });
+    followupsEl.classList.add('show');
+  } else {
+    followupsEl.classList.remove('show');
+  }
+
+  consoleEl.classList.add('show');
+}
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
